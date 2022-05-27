@@ -1,0 +1,394 @@
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*              MODIFICAÇÕES PARA USO COM 12F675                   *
+;*                FEITAS PELO PROF. MARDSON                        *
+;*                      JUNHO DE 2019                              *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                       NOME DO PROJETO                           *
+;*                           CLIENTE                               *
+;*         DESENVOLVIDO PELA MOSAICO ENGENHARIA E CONSULTORIA      *
+;*   VERSÃO: 1.0                           DATA: 17/06/03          *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                     DESCRIÇÃO DO ARQUIVO                        *
+;*-----------------------------------------------------------------*
+;*   MODELO PARA O PIC 12F675                                      *
+;*                                                                 *
+;*                                                                 *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                     ARQUIVOS DE DEFINIÇÕES                      *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+#INCLUDE <p12f675.inc>	;ARQUIVO PADRÃO MICROCHIP PARA 12F675
+
+	__CONFIG _BODEN_OFF & _CP_OFF & _PWRTE_ON & _WDT_OFF & _MCLRE_ON & _INTRC_OSC_NOCLKOUT
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                    PAGINAÇÃO DE MEMÓRIA                         *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;DEFINIÇÃO DE COMANDOS DE USUÁRIO PARA ALTERAÇÃO DA PÁGINA DE MEMÓRIA
+#DEFINE	BANK0	BCF STATUS,RP0	;SETA BANK 0 DE MEMÓRIA
+#DEFINE	BANK1	BSF STATUS,RP0	;SETA BANK 1 DE MAMÓRIA
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                         VARIÁVEIS                               *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; DEFINIÇÃO DOS NOMES E ENDEREÇOS DE TODAS AS VARIÁVEIS UTILIZADAS 
+; PELO SISTEMA
+
+	CBLOCK	0x20	;ENDEREÇO INICIAL DA MEMÓRIA DE
+					;USUÁRIO
+		W_TEMP		;REGISTRADORES TEMPORÁRIOS PARA USO
+		STATUS_TEMP	;JUNTO ÀS INTERRUPÇÕES
+
+		;NOVAS VARIÁVEIS
+		
+		AUX
+		CONTAPACOTE
+		SEPARABIT
+
+	ENDC			;FIM DO BLOCO DE MEMÓRIA
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                        FLAGS INTERNOS                           *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; DEFINIÇÃO DE TODOS OS FLAGS UTILIZADOS PELO SISTEMA
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                         CONSTANTES                              *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; DEFINIÇÃO DE TODAS AS CONSTANTES UTILIZADAS PELO SISTEMA
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                           ENTRADAS                              *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; DEFINIÇÃO DE TODOS OS PINOS QUE SERÃO UTILIZADOS COMO ENTRADA
+; RECOMENDAMOS TAMBÉM COMENTAR O SIGNIFICADO DE SEUS ESTADOS (0 E 1)
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                           SAÍDAS                                *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; DEFINIÇÃO DE TODOS OS PINOS QUE SERÃO UTILIZADOS COMO SAÍDA
+; RECOMENDAMOS TAMBÉM COMENTAR O SIGNIFICADO DE SEUS ESTADOS (0 E 1)
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                       VETOR DE RESET                            *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+	ORG	0x00			;ENDEREÇO INICIAL DE PROCESSAMENTO
+	GOTO	INICIO
+	
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                    INÍCIO DA INTERRUPÇÃO                        *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; ENDEREÇO DE DESVIO DAS INTERRUPÇÕES. A PRIMEIRA TAREFA É SALVAR OS
+; VALORES DE "W" E "STATUS" PARA RECUPERAÇÃO FUTURA
+
+	ORG	0x04			;ENDEREÇO INICIAL DA INTERRUPÇÃO
+	MOVWF	W_TEMP		;COPIA W PARA W_TEMP
+	SWAPF	STATUS,W
+	MOVWF	STATUS_TEMP	;COPIA STATUS PARA STATUS_TEMP
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                    ROTINA DE INTERRUPÇÃO                        *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; AQUI SERÃO ESCRITAS AS ROTINAS DE RECONHECIMENTO E TRATAMENTO DAS
+; INTERRUPÇÕES
+	BTFSC	PIR1, TMR1IF ;CHECA SE A INTERRUPÇÃO FOI POR OVERFLOW DO TIMERO OU DO TIMER1
+	GOTO	ENVIAPACOTE  ;CASO SEJA POR TIMER1, DESVIA PARA A LABELENVIAPACOTE, SENÃO ESTA INSTRUÇÃO É PULADA
+	
+	MOVLW .15	    
+	SUBWF AUX, W		;NESTE BLOCO TESTAMOS SE O VALOR DE AUX=15, SE SIM, GOTO IGUAL15, SENAO, GOTO DIFERENTE15
+	BTFSS STATUS, Z
+	GOTO DIFERENTE15
+	GOTO IGUAL15
+	
+IGUAL15				
+	BTFSS GPIO, GP0
+	GOTO SETA	    ;ESTE BLOCO INDICA QUE SE PASSOU 1 SEGUNDO ENTÃO O LED OPERACIONAL INVERTERÁ O ESTADO (PISCANDO)
+	GOTO LIMPA
+SETA
+	BSF GPIO, GP0	    ;SETA A PORTA GP0 (LED OPERACIONAL)
+	BCF INTCON, T0IF    ;LIMPA A FLAG QUE INDICA O OVERFLOW NO TIMER0
+	CLRF AUX	    ;RESETA O CONTADOR AUX
+	CLRF TMR0	    ;LIMPA O VALOR DO TIMER0 VOLTANDO PARA 0
+	GOTO SAI_INT	    ;DESVIA A EXECUÇÃO PARA A SAÍDA DA INTERRUPÇÃO
+LIMPA
+	BCF GPIO, GP0	    ;ZERA A PORTA GP0 (LED OPERACIONAL)
+	BCF INTCON, T0IF    ;LIMPA A FLAG QUE INDICA O OVERFLOW NO TIMER0
+	CLRF AUX            ;RESETA O CONTADOR AUX
+	CLRF TMR0           ;LIMPA O VALOR DO TIMER0 VOLTANDO PARA 0
+	GOTO SAI_INT        ;DESVIA A EXECUÇÃO PARA A SAÍDA DA INTERRUPÇÃO
+	
+DIFERENTE15		    ;INDICA QUE AINDA NAO SE PASSOU 1SEGUNDO
+	
+	INCF AUX	    ;INCREMENTA O CONTADOR AUX
+	BCF INTCON, T0IF    ;LIMPA A FLAG QUE INDICA O OVERFLOW NO TIMER0
+	CLRF TMR0	    ;LIMPA O VALOR DO TIMER0 VOLTANDO PARA 0
+	GOTO SAI_INT	    ;DESVIA A EXECUÇÃO PARA A SAÍDA DA INTERRUPÇÃO
+	
+	;------- ENVIO DE PACOTES E REPASSE DE CONTROLE -------------;
+
+	;SERÃO ENVIADOS 200 PACOTES DE 25ms CADA, CONTANDO COM O INTERVALO ENTRE OS PACOTES, DEPOIS DE 200 PACOTES ENVIADOS
+	;HAVERÁ SE PASSADO 5 SEGUNDOS, QUE É QUANDO O PIC REPASSA O CONTROLE PARA O OUTRO PIC
+	;OBS: DOS 25ms, 1.2ms SÃO PARA O ENVIO DOS BITS E O RESTANTE DE INTERVALO ENTRE OS PACOTES.
+	;COMO SÃO 1.2 PARA O ENVIO DE 11 BITS, CADA BIT TERÁ DURAÇÃO DE APROX 109us.
+	;A LABEL ENVIAPACOTE É RESPONSAVEL PELA EXECUÇÃO DESTES PROCEDIMENTOS
+	
+	;A DECISAO DE ENVIO DE PACOTES FOI FEITA DA SEGUINTE MANEIRA:
+	;PACOTE NORMAL: ENVIADO A CADA 25mS QUE SERVE DE MONITORAMENTO PARA SABER SE O OUTRO PIC NAO MORREU. HELLO)
+	;PACOTE DE CONTROLE: QUANDO ENVIADO O OUTRO PIC DEVE SABER QUE É PARA ASSUMIR O CONTROLE QUANDO RECEBER.
+	
+	
+ENVIAPACOTE	; "HELLO MONITORAMENTO"    "PACOTE NORMAL: 0 1100 0000 0 1 -> Start / D0D1D2D3 D4D5D6D7 / R / STOP"
+					  
+	
+	MOVLW .200
+	SUBWF CONTAPACOTE, W	
+	BTFSC STATUS, Z	    ;NESTE BLOCO É GERENCIADO O INTERVALO E NUMERO DE PACOTES
+	GOTO REPASSACONTROLE
+	
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'START BIT'
+	MOVLW .34
+	MOVWF SEPARABIT			
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BSF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D1'
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BSF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D2'
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D3'
+
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D4'
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D5'
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D6'
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D7'
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'D8'
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O BIT DE REDUNDANCIA
+	
+	MOVLW .68
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BSF GPIO, GP2	    ;NESTE BLOCO É GERENCIADO O 'STOP BIT'
+	
+	INCF CONTAPACOTE    ;INCREMENTA O CONTAPACOTE 
+	
+	BCF PIR1, TMR1IF    ;RESETA A FLAG QUE APONTA O OVERFLOW DO TIMER1
+	MOVLW B'10100011'   ;REAJUSTA OS VALORES INICIAIS DE TMR1H PARA NOVA CONTAGEM
+	MOVWF TMR1H
+        MOVLW B'00001000'   ;REAJUSTA OS VALORES INICIAIS DE TMR1L PARA NOVA CONTAGEM
+	MOVWF TMR1L
+	
+	GOTO SAI_INT	    ;DESVIA PARA A SAÍDA DA INTERRUPÇÃO
+	
+REPASSACONTROLE ;PACOTE QUE REPASSA O CONTROLE "PACOTE CONTROLE: 0 0011 0000 0 1 -> Start / D0D1D2D3 D4D5D6D7 / R / STOP"
+	BCF GPIO, GP2	    ;START BIT
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;DADO 1
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;DADO 2
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BSF GPIO, GP2	    ;DADO 3
+
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BSF GPIO, GP2	    ;DADO 4
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;DADO 5
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;DADO 6
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;DADO 7
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;DADO 8
+	
+	MOVLW .34
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BCF GPIO, GP2	    ;REDUNDANCIA
+	
+	MOVLW .68
+	MOVWF SEPARABIT
+	DECFSZ SEPARABIT
+	GOTO $-1
+	BSF GPIO, GP2	    ;STOP BIT
+
+	MOVLW .0
+	MOVWF CONTAPACOTE
+	BCF PIR1, TMR1IF
+	MOVLW B'10100011'
+	MOVWF TMR1H
+        MOVLW B'00001000'
+	MOVWF TMR1L
+	GOTO SAI_INT
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                 ROTINA DE SAÍDA DA INTERRUPÇÃO                  *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; OS VALORES DE "W" E "STATUS" DEVEM SER RECUPERADOS ANTES DE 
+; RETORNAR DA INTERRUPÇÃO
+
+SAI_INT
+	SWAPF	STATUS_TEMP,W
+	MOVWF	STATUS		;MOVE STATUS_TEMP PARA STATUS
+	SWAPF	W_TEMP,F
+	SWAPF	W_TEMP,W	;MOVE W_TEMP PARA W
+	RETFIE
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*	            	 ROTINAS E SUBROTINAS                      *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+; CADA ROTINA OU SUBROTINA DEVE POSSUIR A DESCRIÇÃO DE FUNCIONAMENTO
+; E UM NOME COERENTE ÀS SUAS FUNÇÕES.
+
+SUBROTINA1
+
+	;CORPO DA ROTINA
+
+	RETURN
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                     INICIO DO PROGRAMA                          *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+	
+INICIO
+	BANK1				;ALTERA PARA O BANCO 1
+	MOVLW	B'00000010' ;CONFIGURA TODAS AS PORTAS DO GPIO (PINOS)
+	MOVWF	TRISIO
+	
+	; TRISIO: GP0<0>, LED OPERACIONAL 
+	;         GP1<1>, SINAL DA BATERIA
+	;	  GP2<0>, COMUNICAÇÃO SERIAL (GP2 MUDARÁ DE ESTADO PARA ATUAR COMO SAÍDA E ENTRADA DA COMUNICAÇÃO
+	;	  GP3<x>, SEM FUNÇÃO POR ENQUANTO
+	;         GP4<0>, LED CONTROLE
+	;         GP5<0>, LED ALARME
+	
+	MOVLW   B'00010010'     ;PORTAS GP GP CONFIGURADAS COMO
+	MOVWF	ANSEL 		;DEFINE PORTAS COMO Digital I/O
+	MOVLW	B'00000111'	;UTILIZOU SE UM PRESCALE DE 1:256, POIS 15 x 65.536 = 983.040. APROX 1 SEGUNDO.
+	MOVWF	OPTION_REG	;DEFINE OPÇÕES DE OPERAÇÃO
+	MOVLW	B'11100000'	;FOI LIGADO INTERRUPÇÃO GERAL, INTERRUPÇÃO POR PERIFERICO (TMR1) E INTERRUPÇÃO POR TIMER0.
+	MOVWF	INTCON		;DEFINE OPÇÕES DE INTERRUPÇÕES
+	MOVLW	B'00000001'	;ATIVADA A INTERRUPÇÃO POR TIMER1
+	MOVWF	PIE1    
+	BANK0				;RETORNA PARA O BANCO
+	MOVLW	B'00000111'
+	MOVWF	CMCON		;DEFINE O MODO DE OPERAÇÃO DO COMPARADOR ANALÓGICO
+	MOVLW	B'00000101'	;CONFIGURADO PARA LIGAR O COMPARADOR E USAR GP1 COMO ENTRADA E ESTAR JUSTIFICADO PELA ESQUERDA
+	MOVWF	ADCON0 
+	MOVLW	B'00000001'	;ATIVADO O TIMER1 COM PRESCALE 1:1
+	MOVWF	T1CON 	
+	
+
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                     INICIALIZAÇÃO DAS VARIÁVEIS                 *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+MOVLW .0
+MOVWF AUX ;VARIÁVEL USADA PARA SER INCREMENTADA 15X PARA QUE SE CONSIGA CONTAR APROX 1s, USANDO UM PRESCALE DE 1:256 NO TIMER0'
+MOVLW .0 
+MOVWF TMR0 ;VALOR INICIAL DO TIMER0 = 0.
+MOVLW B'10100011' 
+MOVWF TMR1H	    ;MOVE O VALOR 10100011 O TMR1H'
+MOVLW B'00001000' 
+MOVWF TMR1L	    ;MOVE O VALOR 00001000 O TMR1L'
+MOVLW .0
+MOVWF CONTAPACOTE   ;INICIA COM VALOR 0 E É INCREMENTADA A CADA PACOTE DE 1.2ms ENVIADO ATÉ CHEGAR EM 200 PACOTES.
+MOVLW .0
+MOVWF SEPARABIT	    ;INICIA EM ZERO E É USADA PARA CONTAR O TEMPO QUE LEVA PARA ENVIAR UM BIT DENTRO DE CADA PACOTE(109us)
+	
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                     ROTINA PRINCIPAL                            *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+MAIN
+	
+	BSF ADCON0, 1	  ; INICIA A CONVERSÃO
+	BTFSC ADCON0, 1   ; A CONVERSÃO LEVARÁ ALGUNS CICLOS DE MAQUINA, ENTÃO UM LOOP É CRIADO QUE DEVE ESPERAR A CONVERSÃO TERMINAR
+	GOTO $-1	  ; PARA CHECAR QUAL O VALOR RESULTANTE
+	MOVLW B'10111111' ; COMPARA ADRESH COM O VALOR 191, EQUIVALENTE A TENSÃO 3.75V
+	SUBWF ADRESH, W		
+	BTFSC STATUS, C	  ; SE HOUVER CARRY O VALOR É MENOR QUE 3.75V E DEVE ACENDER O LED DE AVISO (GP5)
+	BCF GPIO, GP5		
+	
+	MOVLW B'10111111'	; NESTE BLOCO TBM É FEITA A COMPARAÇÃO DE ADRESH COM O VALOR 191, EQUIVALENTE A 3.75V
+	SUBWF ADRESH, W		; SE HOUVER CARRY O VALOR É MENOR QUE 3.75V E DEVE ACENDER O LED DE AVISO (GP5)
+	BTFSS STATUS, C		
+	BSF GPIO, GP5		
+	GOTO MAIN	
+	
+	
+	
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+;*                       FIM DO PROGRAMA                           *
+;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+	END
+
+
+
